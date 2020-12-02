@@ -9,12 +9,13 @@ else:
     sys.exit("Please declare the environment variable 'SUMO_HOME'")
 import traci
 import logging
+import numpy as np
 
 # create logger with 'spam_application'
 logger = logging.getLogger('spam_application')
 logger.setLevel(logging.DEBUG)
 # create file handler which logs even debug messages
-fh = logging.FileHandler('spam.log')
+fh = logging.FileHandler('spam.log', mode="w")
 fh.setLevel(logging.DEBUG)
 logger.addHandler(fh)
 
@@ -25,7 +26,7 @@ class TrafficSignal:
     It is responsible for retrieving information and changing the traffic phase using Traci API
     """
 
-    def __init__(self, env, ts_id, delta_time, yellow_time, min_green, max_green, phases):
+    def __init__(self, env, ts_id, delta_time, yellow_time, min_green, max_green, phases, strict=True):
         self.id = ts_id
         self.env = env
         self.time_on_phase = 0.0
@@ -36,10 +37,14 @@ class TrafficSignal:
         self.green_phase = 0
         self.num_green_phases = len(phases) // 2
         self.lanes = list(dict.fromkeys(traci.trafficlight.getControlledLanes(self.id)))  # remove duplicates and keep order
-        logger.debug(f"traci dir: {dir(traci)}")
-        logger.debug(f"Lane Areas: {traci.lanearea.getIDList()}")
-        logger.debug(f"LIGHT ID: {self.id}")
-        logger.debug(f"TRAFFIC LANES: {self.lanes}")
+        _junction = traci.trafficlight._getUniversal(traci.constants.TL_CONTROLLED_JUNCTIONS, self.id)
+        if len(_junction) > 1 and strict:
+            raise EnvironmentError(
+                f"There are {len(_junction)} junctions with ids: {_junction}, however TrafficSignal can process only one junction per traffic signal.\n"
+                f"To avoid it either create multiple traffic signals in place of current one (id: {self.id}),\n"
+                f"  or set `strict=True` (in this case first junction will be considered)"
+            )
+        self.junction = _junction[0]
         self.out_lanes = [link[0][1] for link in traci.trafficlight.getControlledLinks(self.id)]
         self.out_lanes = list(set(self.out_lanes))
 
@@ -49,6 +54,10 @@ class TrafficSignal:
     @property
     def phase(self):
         return traci.trafficlight.getPhase(self.id)
+
+    @property
+    def position(self):
+        return traci.junction.getPosition(self.junction)
 
     def set_next_phase(self, new_phase):
         """

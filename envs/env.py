@@ -19,12 +19,14 @@ import pandas as pd
 from .traffic_signal import TrafficSignal
 
 
-class SumoEnvironment(MultiAgentEnv):
+class SumoGridEnvironment(MultiAgentEnv):
     def __init__(
         self,
         net_file,
         route_file,
         phases,
+        num_cols,
+        num_rows,
         out_csv_name=None,
         use_gui=False,
         num_seconds=20000,
@@ -43,6 +45,8 @@ class SumoEnvironment(MultiAgentEnv):
         :param net_file: (str) SUMO .net.xml file
         :param route_file: (str) SUMO .rou.xml file
         :param phases: (traci.trafficlight.Phase list) Traffic Signal phases definition
+        :param num_cols: (int) Number of columns in the grid environment
+        :param num_rows: (int) Number of rows in the grid environment
         :param out_csv_name: (str) name of the .csv output with simulation results. If None no output is generated
         :param use_gui: (bool) Whether to run SUMO simulation with GUI visualization
         :param num_seconds: (int) Number of simulated seconds on SUMO
@@ -53,8 +57,6 @@ class SumoEnvironment(MultiAgentEnv):
         :param max_green: (int) Max green time in a phase
         :single_agent: (bool) If true, it behaves like a regular gym.Env. Else, it behaves like a MultiagentEnv (https://github.com/ray-project/ray/blob/master/python/ray/rllib/env/multi_agent_env.py)
         """
-
-
         self._net = net_file
         self._route = route_file
         self.use_gui = use_gui
@@ -65,8 +67,11 @@ class SumoEnvironment(MultiAgentEnv):
 
         traci.start([sumolib.checkBinary('sumo'), '-n', self._net])  # start only to retrieve information
 
+        self.num_cols = num_cols
+        self.num_rows = num_rows
+
         self.single_agent = single_agent
-        self.ts_ids = traci.trafficlight.getIDList()
+        self.ts_ids = traci.trafficlight.getIDList()  # Has to be sorted to process the grid properly
         self.lanes_per_ts = len(set(traci.trafficlight.getControlledLanes(self.ts_ids[0])))
         self.traffic_signals = dict()
         self.phases = phases
@@ -134,6 +139,12 @@ class SumoEnvironment(MultiAgentEnv):
             self.traffic_signals[ts] = TrafficSignal(self, ts, self.delta_time, self.yellow_time, self.min_green, self.max_green, self.phases)
             self.last_measure[ts] = 0.0
 
+        self.ts_ids = sorted(
+            self.ts_ids,
+            # Left to right/Top to bottom
+            key=lambda x: (-self.traffic_signals[x].position[1], self.traffic_signals[x].position[0]),
+        )
+
         self.vehicles = dict()
 
         # Load vehicles
@@ -198,9 +209,14 @@ class SumoEnvironment(MultiAgentEnv):
         Return the current observation for each traffic signal
         """
         observations = {}
-        # observations = np.zeros((2, 16, 16))
-        for ts in self.ts_ids:
-            phase_id = [1 if self.traffic_signals[ts].phase // 2 == i else 0 for i in range(self.num_green_phases)]  #one-hot encoding
+        observations = np.zeros((2, 4 * self.num_rows, 4 * self.num_cols))
+        print(self.ts_ids)
+        for ts_idx, ts in enumerate(self.ts_ids):
+            ts_row_idx = ts_idx // self.num_cols
+            ts_col_idx = ts_idx % self.num_cols
+            observations[0, ts_row_idx, ts_col_idx] = None  # TODO: Add a function in traffic_signal to get a matrix of some measurements
+
+            phase_id = [1 if self.traffic_signals[ts].phase // 2 == i else 0 for i in range(self.num_green_phases)]  # one-hot encoding
             # elapsed = self.traffic_signals[ts].time_on_phase / self.max_green
 
             density = self.traffic_signals[ts].get_lanes_density()

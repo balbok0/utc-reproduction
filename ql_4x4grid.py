@@ -23,24 +23,20 @@ if __name__ == '__main__':
     runs = 1
 
     env = SumoGridEnvironment(
-        net_file='nets/3x3/3x3.net.xml',
-        route_file='nets/3x3/3x3-peak_3.rou.xml',
+        net_file='nets/4x4-Lucas/4x4.net.xml',
+        route_file='nets/4x4-Lucas/4x4c2.rou.xml',
         num_cols=4,
         num_rows=4,
         use_gui=False,
-        num_seconds=14500,
+        num_seconds=40000,
         time_to_load_vehicles=300,
         max_depart_delay=0,
         phases=[
-            traci.trafficlight.Phase(42, "GGGrrrrrGGGrrrrr"),
-            traci.trafficlight.Phase(3, "GyyrrrrrGyyrrrrr"),
-            traci.trafficlight.Phase(42, "GrrGrrrrGrrGrrrr"),
-            traci.trafficlight.Phase(3, "yrryrrrryrryrrrr"),
-            traci.trafficlight.Phase(42, "rrrrGGGrrrrrGGGr"),
-            traci.trafficlight.Phase(3, "rrrrGyyrrrrrGyyr"),
-            traci.trafficlight.Phase(42, "rrrrGrrGrrrrGrrG"),
-            traci.trafficlight.Phase(3, "rrrryrryrrrryrry"),
-        ],
+            traci.trafficlight.Phase(35, "GGGrrr"),   # north-south
+            traci.trafficlight.Phase(2, "yyyrrr"),
+            traci.trafficlight.Phase(35, "rrrGGG"),   # west-east
+            traci.trafficlight.Phase(2, "rrryyy")
+        ]
     )
 
     for run in range(1, runs + 1):
@@ -68,4 +64,5 @@ if __name__ == '__main__':
         env.close()
 
         df = pd.DataFrame(infos)
-        df.to_csv('outputs/3x3grid/c2_alpha{}_gamma{}_decay{}_run{}.csv'.format(alpha, gamma, decay, run), index=False)
+        df.to_csv('outputs/4x4grid/c2_alpha{}_gamma{}_decay{}_run{}.csv'.format(alpha, gamma, decay, run), index=False)
+

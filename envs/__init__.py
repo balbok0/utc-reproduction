@@ -1,1 +1,1 @@
-from .env import SumoEnvironment
+from .env import SumoGridEnvironment
