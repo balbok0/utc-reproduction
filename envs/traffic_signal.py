@@ -8,6 +8,15 @@ if 'SUMO_HOME' in os.environ:
 else:
     sys.exit("Please declare the environment variable 'SUMO_HOME'")
 import traci
+import logging
+
+# create logger with 'spam_application'
+logger = logging.getLogger('spam_application')
+logger.setLevel(logging.DEBUG)
+# create file handler which logs even debug messages
+fh = logging.FileHandler('spam.log')
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
 
 
 class TrafficSignal:
@@ -27,6 +36,10 @@ class TrafficSignal:
         self.green_phase = 0
         self.num_green_phases = len(phases) // 2
         self.lanes = list(dict.fromkeys(traci.trafficlight.getControlledLanes(self.id)))  # remove duplicates and keep order
+        logger.debug(f"traci dir: {dir(traci)}")
+        logger.debug(f"Lane Areas: {traci.lanearea.getIDList()}")
+        logger.debug(f"LIGHT ID: {self.id}")
+        logger.debug(f"TRAFFIC LANES: {self.lanes}")
         self.out_lanes = [link[0][1] for link in traci.trafficlight.getControlledLinks(self.id)]
         self.out_lanes = list(set(self.out_lanes))
 

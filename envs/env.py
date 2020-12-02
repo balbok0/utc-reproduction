@@ -198,6 +198,7 @@ class SumoEnvironment(MultiAgentEnv):
         Return the current observation for each traffic signal
         """
         observations = {}
+        # observations = np.zeros((2, 16, 16))
         for ts in self.ts_ids:
             phase_id = [1 if self.traffic_signals[ts].phase // 2 == i else 0 for i in range(self.num_green_phases)]  #one-hot encoding
             # elapsed = self.traffic_signals[ts].time_on_phase / self.max_green
@@ -209,10 +210,6 @@ class SumoEnvironment(MultiAgentEnv):
 
     def _compute_rewards(self):
         return self._waiting_time_reward()
-        #return self._pressure_reward()
-        #return self._queue_reward()
-        #return self._waiting_time_reward2()
-        #return self._queue_average_reward()
 
     def _pressure_reward(self):
         rewards = {}
