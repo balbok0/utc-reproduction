@@ -126,3 +126,13 @@ class TrafficSignal:
         for lane in self.lanes:
             veh_list += traci.lane.getLastStepVehicleIDs(lane)
         return veh_list
+
+    def as_feature_grid(self):
+        # Lanes seem to always be top, right, bottom, left
+        idx_to_loc = [(0, 1), (0, 2), (1, 3), (2, 3), (3, 2), (3, 1), (2, 0), (1, 0)]
+        grid = np.zeros((2, 4, 4))
+        for (x, y), lane in zip(idx_to_loc, self.lanes):
+            grid[0, x, y] = traci.lane.getLastStepHaltingNumber(lane)
+            grid[1, x, y] = traci.lane.getLastStepMeanSpeed(lane)
+
+        return grid

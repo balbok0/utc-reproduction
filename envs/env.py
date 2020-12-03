@@ -95,11 +95,14 @@ class SumoGridEnvironment(MultiAgentEnv):
 
         Action space is which green phase is going to be open for the next delta_time seconds
         """
-        self.observation_space = spaces.Box(low=np.zeros(self.num_green_phases + 2*self.lanes_per_ts), high=np.ones(self.num_green_phases + 2*self.lanes_per_ts))
+        self.observation_space = spaces.Box(
+            low=np.zeros((2, 4 * self.num_rows, 4 * self.num_cols)),
+            high=np.inf * np.ones((2, 4 * self.num_rows, 4 * self.num_cols)),
+        )
         self.discrete_observation_space = spaces.Tuple((
             spaces.Discrete(self.num_green_phases),                         # Green Phase
-            #spaces.Discrete(self.max_green//self.delta_time),               # Elapsed time of phase
-            *(spaces.Discrete(10) for _ in range(2*self.lanes_per_ts))      # Density and stopped-density for each lane
+            # spaces.Discrete(self.max_green//self.delta_time),               # Elapsed time of phase
+            *(spaces.Discrete(10) for _ in range(2 * self.lanes_per_ts))      # Density and stopped-density for each lane
         ))
         self.action_space = spaces.Discrete(self.num_green_phases)
 
@@ -212,16 +215,9 @@ class SumoGridEnvironment(MultiAgentEnv):
         observations = np.zeros((2, 4 * self.num_rows, 4 * self.num_cols))
         print(self.ts_ids)
         for ts_idx, ts in enumerate(self.ts_ids):
-            ts_row_idx = ts_idx // self.num_cols
-            ts_col_idx = ts_idx % self.num_cols
-            observations[0, ts_row_idx, ts_col_idx] = None  # TODO: Add a function in traffic_signal to get a matrix of some measurements
-
-            phase_id = [1 if self.traffic_signals[ts].phase // 2 == i else 0 for i in range(self.num_green_phases)]  # one-hot encoding
-            # elapsed = self.traffic_signals[ts].time_on_phase / self.max_green
-
-            density = self.traffic_signals[ts].get_lanes_density()
-            queue = self.traffic_signals[ts].get_lanes_queue()
-            observations[ts] = phase_id + density + queue
+            r_i = ts_idx // self.num_cols
+            c_i = ts_idx % self.num_cols
+            observations[:, r_i * 4:(r_i + 1) * 4, c_i * 4:(c_i + 1) * 4] = self.traffic_signals[ts].as_feature_grid()
         return observations
 
     def _compute_rewards(self):
