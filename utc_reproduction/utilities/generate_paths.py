@@ -1,5 +1,6 @@
 import os
 import sys
+from numpy.lib.npyio import save
 if 'SUMO_HOME' in os.environ:
     tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
     if tools not in sys.path:
@@ -10,6 +11,8 @@ import sumolib
 import numpy as np
 import argparse
 from pathlib import Path
+import subprocess
+
 
 def generate_rou_xml_files(
     network_file: str,
@@ -24,7 +27,9 @@ def generate_rou_xml_files(
 ):
     net = sumolib.net.readNet(network_file)
 
-    save_folder = Path(network_file).parent
+    save_folder = Path(network_file).parent / "routes"
+    if not save_folder.exists():
+        os.makedirs(str(save_folder))
     prefix = Path(network_file).name[:-8] if prefix is None else prefix
 
     outgoing_edges = [edge for edge in net.getEdges() if len(edge.getOutgoing()) == 0]
@@ -57,6 +62,7 @@ def generate_rou_xml_files(
                 rand_path_prob=rand_path_prob,
                 rand_path_len=rand_path_len,
             )
+
 
 def __generate_single_rou_xml_file(
     net,
@@ -123,9 +129,106 @@ def __generate_single_rou_xml_file(
         f.writelines(xml_content)
 
 
+def demote():
+    def set_ids():
+        os.setuid(1000)
+        os.setgid(1000)
+    return set_ids
+
+
+def generate_reproduce_rou_xml_files(network_file: str, bootstrap: int = 1, prefix: str = None, *args, **kwargs):
+    net = sumolib.net.readNet(network_file)
+
+    save_folder = Path(network_file).parent / "routes"
+    if not save_folder.exists():
+        os.makedirs(str(save_folder))
+    prefix = Path(network_file).name[:-8] if prefix is None else prefix
+
+    outgoing_edges = [edge.getID() for edge in net.getEdges() if len(edge.getOutgoing()) == 0]
+    incoming_edges = [edge.getID() for edge in net.getEdges() if len(edge.getIncoming()) == 0]
+
+    if bootstrap == 1:
+        __generate_reproduce_single_rou_xml_file(
+            network_file=str(network_file),
+            outgoing_edges=outgoing_edges,
+            incoming_edges=incoming_edges,
+            out_file_prefix=str(save_folder / f"{prefix}"),
+        )
+    else:
+        for b_idx in range(bootstrap):
+            __generate_reproduce_single_rou_xml_file(
+                network_file=str(network_file),
+                outgoing_edges=outgoing_edges,
+                incoming_edges=incoming_edges,
+                out_file_prefix=str(save_folder / f"{prefix}_{b_idx}"),
+            )
+
+
+def __generate_reproduce_single_rou_xml_file(network_file, incoming_edges, outgoing_edges, out_file_prefix):
+    in_lines = ["<edgedata>\n"]
+    out_lines = ["<edgedata>\n"]
+    # Loop over 15min intervals
+    for start in range(0, 3600, 900):
+        in_lines.append(
+            f"\t<interval begin=\"{start}\" end=\"{start + 900}\"/>\n"
+        )
+        out_lines.append(
+            f"\t<interval begin=\"{start}\" end=\"{start + 900}\"/>\n"
+        )
+        # Gaussian shifted to have all values at least slightly above 0
+        in_edge_probs = np.random.normal(size=len(incoming_edges))
+        min_in_edge_probs = np.min(in_edge_probs)
+        in_edge_probs -= min_in_edge_probs * (1 - .1 * np.sign(min_in_edge_probs))
+
+        out_edge_probs = np.random.normal(size=len(outgoing_edges))
+        min_out_edge_probs = np.min(out_edge_probs)
+        out_edge_probs -= min_out_edge_probs * (1 - .1 * np.sign(min_out_edge_probs))
+        for edge, edge_prob in zip(incoming_edges, in_edge_probs):
+            in_lines.append(
+                f"\t\t<edge id=\"{edge}\" value=\"{edge_prob}\"/>\n"
+            )
+        for edge, edge_prob in zip(outgoing_edges, out_edge_probs):
+            out_lines.append(
+                f"\t\t<edge id=\"{edge}\" value=\"{edge_prob}\"/>\n"
+            )
+        in_lines.append("\t</interval>\n")
+        out_lines.append("\t</interval>\n")
+    in_lines.append("</edgedata>\n")
+    out_lines.append("</edgedata>\n")
+
+    with open(f"{out_file_prefix}.src.xml", mode="w") as f:
+        f.writelines(in_lines)
+    with open(f"{out_file_prefix}.dst.xml", mode="w") as f:
+        f.writelines(out_lines)
+
+    args = [
+        os.path.join(os.environ["SUMO_HOME"], "tools", "randomTrips.py"),
+        "--weights-prefix",
+        "tmp_weights",
+        "-n",
+        network_file,
+        "-r",
+        f"{out_file_prefix}.rou.xml",
+        "-p",
+        f"{np.random.rand() * 1.9 + 0.1}",
+        "--binomial",
+        f"{np.random.randint(10, 51)}",
+        "-e",
+        f"{3600 // 4}",
+    ]
+    print(" ".join(args))
+    subprocess.Popen(
+        " ".join(args),
+        preexec_fn=demote(),
+        shell=True,
+        stdout=subprocess.PIPE,
+    ).stdout.read()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("generate_routes", description="Allows for generating paths for grid-like networks in SUMO.")
     parser.add_argument("network_file", type=str, help="Network file to generate the routes for.")
+    parser.add_argument("--reproduce", action="store_true", help="Whether to run a reproduce version of the script.")
     parser.add_argument("--num-steps", type=int, default=14000, help="Number of steps all routes are generated for in each of the .rou.xml files.")
     parser.add_argument("--delta-step", type=int, default=2, help="Difference in steps between starting time of two consecutive vehicles. Halved during peak hours.")
     parser.add_argument("--peak-step-start", type=int, default=0, help="Peak time start. By default there is no peak time. During peak hours --delta-step is halved.")
@@ -137,4 +240,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     kwargs = vars(args)
-    generate_rou_xml_files(**kwargs)
+    reproduce = kwargs.pop("reproduce")
+    if reproduce:
+        generate_reproduce_rou_xml_files(**kwargs)
+    else:
+        generate_rou_xml_files(**kwargs)
