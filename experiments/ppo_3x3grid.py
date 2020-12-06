@@ -2,20 +2,13 @@ import argparse
 import os
 import sys
 import pandas as pd
-
-# if 'SUMO_HOME' in os.environ:
-#     tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
-#     sys.path.append(tools)
-# else:
-#     sys.exit("Please declare the environment variable 'SUMO_HOME'")
-
 import traci
 import ray
 from ray.tune.registry import register_env
 from ray.rllib.agents.ppo import PPOTrainer
 from ray.rllib.models import ModelCatalog
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
-from envs import SumoGridEnvironment
+from utc_reproduction.envs import SumoGridEnvironment
 from sumo_rl.agents.ql_agent import QLAgent
 from sumo_rl.exploration.epsilon_greedy import EpsilonGreedy
 import numpy as np
