@@ -24,7 +24,7 @@ class SumoGridEnvironment(MultiAgentEnv):
         route_folder: str,
         num_cols: int,
         num_rows: int,
-        num_runs: int,
+        num_train_steps: int,
         use_gui: bool = False,
         num_seconds: int = 20000,
         max_depart_delay: int = 100000,
@@ -35,7 +35,6 @@ class SumoGridEnvironment(MultiAgentEnv):
     ):
         self._net = net_file
         self._route_dir = route_folder
-        # self._agent_routes = dict((f"agent_{x}", y) for x, y in enumerate(Path(self._route_dir).rglob("*.rou.xml")))
         self._agent_routes = dict((f"agent_{x}", y) for x, y in enumerate(list(Path(self._route_dir).rglob("*.rou.xml"))[:1]))
 
         self.use_gui = use_gui
@@ -48,7 +47,8 @@ class SumoGridEnvironment(MultiAgentEnv):
         self.num_rows = num_rows
 
         self.run = 0
-        self.num_runs = num_rows
+        self.step_num = 0
+        self.num_train_steps = num_train_steps
 
         # (num observables, 4 * rows, 4 * cols). Assumes at most 4 directions, 2 incoming lanes each
         self.observation_space = spaces.Box(
@@ -79,6 +79,7 @@ class SumoGridEnvironment(MultiAgentEnv):
             traci.close()
             self.save_csv(self.out_csv_name, self.run)
         self.run += 1
+        self.step_num = 0
 
         # Initialize SUMO environments for agents
         for agent_id, route_file in self._agent_routes.items():
@@ -103,6 +104,8 @@ class SumoGridEnvironment(MultiAgentEnv):
         return self._compute_observations()
 
     def step(self, action_dict: MultiAgentDict):
+        self.step_num += 1
+        print(f"Current step number: {self.step_num}")
         if action_dict is None:
             for _, net in self.agent_sumo_envs.items():
                 net.step(self.delta_time)
@@ -117,8 +120,7 @@ class SumoGridEnvironment(MultiAgentEnv):
         rewards = {}
         infos: Dict[str, Dict[str, float]] = {}
         for agent_id, net in self.agent_sumo_envs.items():
-            # TODO: Beta is wrong. Instead of num of restarts, I should be getting number of steps per epoch, and somehow getting them back to the model.
-            rewards[agent_id] = net.reward(beta=min(1.0, max(self.run * 1. / self.num_runs, 0.0)))
+            rewards[agent_id] = net.reward(beta=min(1.0, max(self.step_num * 1. / self.num_train_steps, 0.0)))
             infos[agent_id] = net.info()
             infos[agent_id]["reward"] = rewards[agent_id]
             infos[agent_id]["step_time"] = self.sim_step
