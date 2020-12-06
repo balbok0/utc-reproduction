@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from collections import defaultdict
-from typing import DefaultDict, Dict
+from typing import DefaultDict, Dict, List
 
 from .traffic_signal import TrafficSignal
 from .network import SumoGridNetwork
@@ -35,7 +35,6 @@ class SumoGridEnvironment(MultiAgentEnv):
     ):
         self._net = net_file
         self._route_dir = route_folder
-        # FIXME: Go back to many agents
         # self._agent_routes = dict((f"agent_{x}", y) for x, y in enumerate(Path(self._route_dir).rglob("*.rou.xml")))
         self._agent_routes = dict((f"agent_{x}", y) for x, y in enumerate(list(Path(self._route_dir).rglob("*.rou.xml"))[:1]))
 
@@ -68,6 +67,7 @@ class SumoGridEnvironment(MultiAgentEnv):
         self.max_depart_delay = max_depart_delay  # Max wait time to insert a vehicle
         self.time_to_teleport = time_to_teleport
 
+        self.metrics: Dict[str, List[Dict[str, float]]] = defaultdict(list)
         self.out_csv_name = out_csv_name
 
     @property
@@ -115,13 +115,14 @@ class SumoGridEnvironment(MultiAgentEnv):
 
         observations = self._compute_observations()
         rewards = {}
-        infos = {}
+        infos: Dict[str, Dict[str, float]] = {}
         for agent_id, net in self.agent_sumo_envs.items():
             # TODO: Beta is wrong. Instead of num of restarts, I should be getting number of steps per epoch, and somehow getting them back to the model.
             rewards[agent_id] = net.reward(beta=min(1.0, max(self.run * 1. / self.num_runs, 0.0)))
             infos[agent_id] = net.info()
             infos[agent_id]["reward"] = rewards[agent_id]
             infos[agent_id]["step_time"] = self.sim_step
+            self.metrics[agent_id].append(infos[agent_id])
         dones = {'__all__': self.sim_step > self.sim_max_time}
 
         return observations, rewards, dones, infos
@@ -131,5 +132,10 @@ class SumoGridEnvironment(MultiAgentEnv):
 
     def save_csv(self, out_csv_name, run):
         if out_csv_name is not None:
-            df = pd.DataFrame(self.metrics)
-            df.to_csv(out_csv_name + '_run{}'.format(run) + '.csv', index=False)
+            for agent_id, agent_infos in self.metrics.items():
+                df = pd.DataFrame(self.metrics)
+
+                df.to_csv(
+                    f"out_csv_name_agent_id_{agent_id}_run_{run}.csv",
+                    index=False,
+                )

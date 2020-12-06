@@ -168,6 +168,7 @@ register_env(
         num_seconds=1000,
         time_to_load_vehicles=2,
         max_depart_delay=0,
+        out_csv_name="outputs/3x3grid/ppo",
     ),
 )
 
@@ -177,9 +178,10 @@ trainer = PPOTrainer(
     env="3x3grid",
     config={
         "framework": "torch",
-        "train_batch_size": 2000,
-        "num_workers": 1,
+        "train_batch_size": 10000,
+        "num_workers": 4,
         "sgd_minibatch_size": 16,
+        "num_gpus": 0.5,
         "model": {
             "custom_model": "grid_actor_critic",
             "custom_model_config": {
