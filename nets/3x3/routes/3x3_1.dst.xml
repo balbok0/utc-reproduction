@@ -1,0 +1,58 @@
+<edgedata>
+	<interval begin="0" end="900"/>
+		<edge id="-gneE1" value="2.8981847586667113"/>
+		<edge id="-gneE25" value="0.23525834703356185"/>
+		<edge id="gneE15" value="2.1349209553866833"/>
+		<edge id="gneE22" value="0.7932789004994025"/>
+		<edge id="gneE23" value="1.3029390668240917"/>
+		<edge id="gneE24" value="3.90919655408319"/>
+		<edge id="gneE26" value="1.5590734728188729"/>
+		<edge id="gneE27" value="3.6317219823322846"/>
+		<edge id="gneE28" value="1.9688705339621075"/>
+		<edge id="gneE6" value="2.0740770265159676"/>
+		<edge id="gneE8" value="1.4036885611334113"/>
+		<edge id="gneE9" value="1.7583702656141962"/>
+	</interval>
+	<interval begin="900" end="1800"/>
+		<edge id="-gneE1" value="2.8205523370445116"/>
+		<edge id="-gneE25" value="0.9762128592008797"/>
+		<edge id="gneE15" value="0.17806262923734661"/>
+		<edge id="gneE22" value="0.6403043049929009"/>
+		<edge id="gneE23" value="2.2532553817394843"/>
+		<edge id="gneE24" value="1.3936395405800908"/>
+		<edge id="gneE26" value="2.9687137081635546"/>
+		<edge id="gneE27" value="3.5508827761712363"/>
+		<edge id="gneE28" value="0.4665749923372069"/>
+		<edge id="gneE6" value="3.406013998289984"/>
+		<edge id="gneE8" value="3.5271348553722075"/>
+		<edge id="gneE9" value="1.8494051331730383"/>
+	</interval>
+	<interval begin="1800" end="2700"/>
+		<edge id="-gneE1" value="1.515169186974124"/>
+		<edge id="-gneE25" value="0.2328516931583553"/>
+		<edge id="gneE15" value="3.8880339357508342"/>
+		<edge id="gneE22" value="3.888624562400798"/>
+		<edge id="gneE23" value="1.188014555176676"/>
+		<edge id="gneE24" value="4.740178234584578"/>
+		<edge id="gneE26" value="2.396994428788348"/>
+		<edge id="gneE27" value="2.251060633728821"/>
+		<edge id="gneE28" value="3.59304630262707"/>
+		<edge id="gneE6" value="4.218126189910994"/>
+		<edge id="gneE8" value="1.7166754978145993"/>
+		<edge id="gneE9" value="3.2154259694794423"/>
+	</interval>
+	<interval begin="2700" end="3600"/>
+		<edge id="-gneE1" value="0.6739103308523456"/>
+		<edge id="-gneE25" value="1.7600481122639648"/>
+		<edge id="gneE15" value="0.45203291209741425"/>
+		<edge id="gneE22" value="3.0452897319927374"/>
+		<edge id="gneE23" value="1.4445759335362862"/>
+		<edge id="gneE24" value="0.14625577106556564"/>
+		<edge id="gneE26" value="2.1643817858929246"/>
+		<edge id="gneE27" value="1.10635309103451"/>
+		<edge id="gneE28" value="1.962118087550796"/>
+		<edge id="gneE6" value="2.493752685422665"/>
+		<edge id="gneE8" value="0.9592045520057545"/>
+		<edge id="gneE9" value="2.672486534315131"/>
+	</interval>
+</edgedata>
