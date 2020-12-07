@@ -118,13 +118,11 @@ class ActorCriticTorch(nn.Module):
 
 
 class Grid3x3Model(TorchModelV2, nn.Module):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name, num_tls, num_train_steps):
+    def __init__(self, obs_space, action_space, num_outputs, model_config, name, num_tls):
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
         nn.Module.__init__(self)
 
         self.base_model = ActorCriticTorch(num_tls)
-        self.step = 0
-        self.num_train_steps = num_train_steps
 
     def forward(self, input_dict, state, seq_lens):
         model_out, (self._local_value_out, self._global_value_out) = self.base_model(
@@ -134,8 +132,6 @@ class Grid3x3Model(TorchModelV2, nn.Module):
         return model_out, state
 
     def value_function(self):
-        beta = max(0.0, min(1.0, self.step * 1.0 / self.num_train_steps))
-
         local_loss = self._local_value_out.sum(1).squeeze()
-        total_loss = beta * self._global_value_out + (1 - beta) * local_loss
+        total_loss = self._global_value_out + local_loss
         return total_loss.view(len(total_loss))

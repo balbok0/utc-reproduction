@@ -57,7 +57,6 @@ trainer = PPOTrainer(
             "custom_model": "grid_actor_critic",
             "custom_model_config": {
                 "num_tls": 3 * 3,
-                "num_train_steps": TRAIN_BATCH_SIZE * NUM_EPISODES * 1.0 / NUM_WORKERS,
             },
         },
     }
