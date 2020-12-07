@@ -214,7 +214,7 @@ def __generate_reproduce_single_rou_xml_file(network_file, incoming_edges, outgo
         "--binomial",
         f"{np.random.randint(10, 51)}",
         "-e",
-        f"{3600 // 4}",
+        f"{3600}",
     ]
     print(" ".join(args))
     subprocess.Popen(
