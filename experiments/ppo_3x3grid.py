@@ -20,7 +20,7 @@ register_env(
     "3x3grid",
     lambda _: SumoGridEnvironment(
         net_file='nets/3x3/3x3.net.xml',
-        route_folder='nets/3x3/',
+        route_folder='nets/3x3/routes/',
         num_cols=3,
         num_rows=3,
         num_train_steps=TRAIN_BATCH_SIZE * 1.0 / NUM_WORKERS,
