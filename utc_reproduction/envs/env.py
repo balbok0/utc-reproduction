@@ -17,7 +17,8 @@ from typing import DefaultDict, Dict, List
 from .traffic_signal import TrafficSignal
 from .network import SumoGridNetwork
 
-class SumoGridEnvironment(MultiAgentEnv):
+
+class SumoGridEnvironment(Env):
     def __init__(
         self,
         net_file: str,
@@ -35,7 +36,8 @@ class SumoGridEnvironment(MultiAgentEnv):
     ):
         self._net = net_file
         self._route_dir = route_folder
-        self._agent_routes = dict((f"agent_{x}", y) for x, y in enumerate(list(Path(self._route_dir).rglob("*.rou.xml"))[:1]))
+        self._route_files = list(Path(self._route_dir).rglob("*.rou.xml"))
+        self.agent_id = f"agent_{np.random.randint(0, 999999999)}"
 
         self.use_gui = use_gui
         if self.use_gui:
@@ -58,7 +60,7 @@ class SumoGridEnvironment(MultiAgentEnv):
         # (rows, )
         self.action_space = spaces.MultiDiscrete([2] * 9)
 
-        self.agent_sumo_envs: Dict[str, SumoGridNetwork] = {}
+        self.sumo_net: SumoGridNetwork = None
         self.traffic_signals: DefaultDict[str, Dict[str, TrafficSignal]] = defaultdict(dict)
 
         self.sim_max_time = num_seconds
@@ -67,8 +69,15 @@ class SumoGridEnvironment(MultiAgentEnv):
         self.max_depart_delay = max_depart_delay  # Max wait time to insert a vehicle
         self.time_to_teleport = time_to_teleport
 
-        self.metrics: Dict[str, List[Dict[str, float]]] = defaultdict(list)
+        self.metrics: List[Dict[str, float]] = []
         self.out_csv_name = out_csv_name
+        if self.out_csv_name.endswith == "/":
+            if not os.path.exists(self.out_csv_name):
+                os.makedirs(self.out_csv_name)
+        else:
+            if not Path(out_csv_name).parent.exists():
+                os.makedirs(str(Path(out_csv_name).parent))
+
 
     @property
     def sim_step(self):
@@ -79,65 +88,58 @@ class SumoGridEnvironment(MultiAgentEnv):
             traci.close()
             self.save_csv(self.out_csv_name, self.run)
         self.run += 1
-        self.step_num = 0
+        self.metrics = []
+
+        self.curr_route_file = np.random.choice(self._route_files)
 
         # Initialize SUMO environments for agents
-        for agent_id, route_file in self._agent_routes.items():
-            sumo_cmd = [
-                self._sumo_binary,
-                '-n', self._net,
-                '-r', route_file,
-                '--max-depart-delay', str(self.max_depart_delay),
-                '--waiting-time-memory', '10000',
-                '--time-to-teleport', str(self.time_to_teleport),
-                '--random'
-            ]
-            if self.use_gui:
-                sumo_cmd.append('--start')
+        sumo_cmd = [
+            self._sumo_binary,
+            '-n', self._net,
+            '-r', self.curr_route_file,
+            '--max-depart-delay', str(self.max_depart_delay),
+            '--waiting-time-memory', '10000',
+            '--time-to-teleport', str(self.time_to_teleport),
+            '--random'
+        ]
+        if self.use_gui:
+            sumo_cmd.append('--start')
 
-            traci.start(sumo_cmd, label=agent_id)
+        traci.start(sumo_cmd, label=self.agent_id)
 
-            # Build networks for each environment
-            self.agent_sumo_envs[agent_id] = SumoGridNetwork(agent_id, self.num_rows, self.num_cols)
-            self.agent_sumo_envs[agent_id].reset()
+        # Build networks for each environment
+        self.sumo_net = SumoGridNetwork(self.agent_id, self.num_rows, self.num_cols)
+        self.sumo_net.reset()
 
         return self._compute_observations()
 
-    def step(self, action_dict: MultiAgentDict):
+    def step(self, actions: List[int]):
         self.step_num += 1
-        print(f"Current step number: {self.step_num}")
-        if action_dict is None:
-            for _, net in self.agent_sumo_envs.items():
-                net.step(self.delta_time)
-        else:
-            for agent_id, actions in action_dict.items():
-                net = self.agent_sumo_envs[agent_id]
-                net.apply_actions(actions)
-
-                net.step(self.delta_time)
+        if actions is not None:
+            self.sumo_net.apply_actions(actions)
+        self.sumo_net.step(self.delta_time)
 
         observations = self._compute_observations()
         rewards = {}
-        infos: Dict[str, Dict[str, float]] = {}
-        for agent_id, net in self.agent_sumo_envs.items():
-            rewards[agent_id] = net.reward(beta=min(1.0, max(self.step_num * 1. / self.num_train_steps, 0.0)))
-            infos[agent_id] = net.info()
-            infos[agent_id]["reward"] = rewards[agent_id]
-            infos[agent_id]["step_time"] = self.sim_step
-            self.metrics[agent_id].append(infos[agent_id])
-        dones = {'__all__': self.sim_step > self.sim_max_time}
+        infos: Dict[str, float] = {}
+        rewards = self.sumo_net.reward(beta=min(1.0, max(self.step_num * 1. / self.num_train_steps, 0.0)))
+        infos = self.sumo_net.info()
+        infos["reward"] = rewards
+        infos["step_time"] = self.sim_step
+        infos["current_route_file"] = self.curr_route_file
+        self.metrics.append(infos)
+        dones = self.sim_step > self.sim_max_time
 
         return observations, rewards, dones, infos
 
     def _compute_observations(self):
-        return {agent: network.as_feature_grid() for agent, network in self.agent_sumo_envs.items()}
+        return self.sumo_net.as_feature_grid()
 
     def save_csv(self, out_csv_name, run):
         if out_csv_name is not None:
-            for agent_id, agent_infos in self.metrics.items():
-                df = pd.DataFrame(self.metrics)
+            df = pd.DataFrame(self.metrics)
 
-                df.to_csv(
-                    f"out_csv_name_agent_id_{agent_id}_run_{run}.csv",
-                    index=False,
-                )
+            df.to_csv(
+                f"{self.out_csv_name}_agent_id_{self.agent_id}_run_{run}.csv",
+                index=False,
+            )
