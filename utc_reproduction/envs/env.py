@@ -120,17 +120,22 @@ class SumoGridEnvironment(Env):
         self.sumo_net.step(self.delta_time)
 
         observations = self._compute_observations()
-        rewards = {}
-        infos: Dict[str, float] = {}
-        rewards = self.sumo_net.reward(beta=min(1.0, max(self.step_num * 1. / self.num_train_steps, 0.0)))
-        infos = self.sumo_net.info()
-        infos["reward"] = rewards
-        infos["step_time"] = self.sim_step
-        infos["current_route_file"] = self.curr_route_file
-        self.metrics.append(infos)
+
+        beta = min(1.0, max(self.step_num * 1. / self.num_train_steps, 0.0))
+        global_reward = self.sumo_net.global_reward()
+        local_reward = self.sumo_net.local_reward()
+        reward = beta * global_reward + (1 - beta) * local_reward
+
+        info = self.sumo_net.info()
+        info["global_reward"] = global_reward
+        info["hybrid_reward"] = reward
+        info["step_time"] = self.sim_step
+        info["current_route_file"] = self.curr_route_file
+        self.metrics.append(info)
+
         dones = self.sim_step > self.sim_max_time
 
-        return observations, rewards, dones, infos
+        return observations, reward, dones, info
 
     def _compute_observations(self):
         return self.sumo_net.as_feature_grid()

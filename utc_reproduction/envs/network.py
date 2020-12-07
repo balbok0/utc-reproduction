@@ -63,13 +63,16 @@ class SumoGridNetwork:
             self.outgoing.append(len(arrived_ids - teleported_ids))
             self.incoming.append(traci.simulation.getDepartedNumber())
 
-    def reward(self, beta: float):
+    def global_reward(self):
         traci.switch(self.label)
-
         global_reward = self.veh_out - self.veh_in
+        return global_reward
+
+    def local_reward(self)
+        traci.switch(self.label)
         local_reward = sum([ts.reward() for ts in self.traffic_signals.values()]) / len(self.ts_ids)
 
-        return beta * global_reward + (1 - beta) * local_reward
+        return local_reward
 
     def info(self) -> Dict[str, Any]:
         return {
