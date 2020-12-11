@@ -1,6 +1,6 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
-REQUIRED = ["gym", "pandas", "traci", "ray[rllib]"]
+REQUIRED = ["gym", "numpy", "pandas", "traci", "ray[rllib]", "matplotlib"]
 
 setup(
     name='utc_reproduction',
