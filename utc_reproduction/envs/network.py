@@ -68,7 +68,7 @@ class SumoGridNetwork:
         global_reward = self.veh_out - self.veh_in
         return global_reward
 
-    def local_reward(self)
+    def local_reward(self):
         traci.switch(self.label)
         local_reward = sum([ts.reward() for ts in self.traffic_signals.values()]) / len(self.ts_ids)
 

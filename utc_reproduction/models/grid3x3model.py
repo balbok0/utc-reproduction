@@ -46,6 +46,7 @@ class Block(nn.Module):
 
         return out
 
+
 class ActorTorch(nn.Module):
     def __init__(self):
         super(self.__class__, self).__init__()
@@ -65,6 +66,7 @@ class ActorTorch(nn.Module):
         x = self.linear_2(x)
         x = x.view((len(x), -1))
         return x
+
 
 class CriticTorch(nn.Module):
     def __init__(self, num_tls):
@@ -128,7 +130,6 @@ class Grid3x3Model(TorchModelV2, nn.Module):
         model_out, (self._local_value_out, self._global_value_out) = self.base_model(
             input_dict["obs"],
         )
-        self.step += 1
         return model_out, state
 
     def value_function(self):

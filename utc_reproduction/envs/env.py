@@ -70,13 +70,16 @@ class SumoGridEnvironment(Env):
         self.time_to_teleport = time_to_teleport
 
         self.metrics: List[Dict[str, float]] = []
-        self.out_csv_name = out_csv_name
-        if self.out_csv_name.endswith == "/":
-            if not os.path.exists(self.out_csv_name):
-                os.makedirs(self.out_csv_name)
+        if out_csv_name is None:
+            self.out_csv_name = None
         else:
-            if not Path(out_csv_name).parent.exists():
-                os.makedirs(str(Path(out_csv_name).parent))
+            self.out_csv_name = out_csv_name
+            if self.out_csv_name.endswith == "/":
+                if not os.path.exists(self.out_csv_name):
+                    os.makedirs(self.out_csv_name)
+            else:
+                if not Path(out_csv_name).parent.exists():
+                    os.makedirs(str(Path(out_csv_name).parent))
 
 
     @property
