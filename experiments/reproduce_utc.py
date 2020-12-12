@@ -22,6 +22,7 @@ register_env(
     lambda config: SumoGridEnvironment(
         net_file='nets/3x3/3x3.net.xml',
         route_folder='nets/3x3/',
+        additionals_file='nets/3x3/3x3.add.xml',
         num_cols=3,
         num_rows=3,
         num_train_steps=(TRAIN_BATCH_SIZE + ROLLOUT) * 1.0 / NUM_WORKERS,

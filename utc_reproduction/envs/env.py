@@ -1,13 +1,10 @@
 # Adapted from: https://github.com/LucasAlegre/sumo-rl
 
 import os
-import sys
 import traci
 import sumolib
 from gym import Env
-import traci.constants as tc
 from gym import spaces
-from ray.rllib.env.multi_agent_env import MultiAgentEnv, MultiAgentDict
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -26,15 +23,17 @@ class SumoGridEnvironment(Env):
         num_cols: int,
         num_rows: int,
         num_train_steps: int,
+        additionals_file: str = None,
         use_gui: bool = False,
         num_seconds: int = 20000,
         max_depart_delay: int = 100000,
         time_to_teleport: int = -1,
-        time_to_load_vehicles: int = 0,
+        time_to_load_vehicles: int = 2,
         delta_time: int = 5,
         out_csv_name: str = None,
     ):
         self._net = net_file
+        self._additionals_file = additionals_file
         self._route_dir = route_folder
         self._route_files = list(Path(self._route_dir).rglob("*.rou.xml"))
         self.agent_id = f"agent_{np.random.randint(0, 999999999)}"
@@ -60,11 +59,11 @@ class SumoGridEnvironment(Env):
         # (rows, )
         self.action_space = spaces.MultiDiscrete([2] * 9)
 
-        self.sumo_net: SumoGridNetwork = None
         self.traffic_signals: DefaultDict[str, Dict[str, TrafficSignal]] = defaultdict(dict)
 
         self.sim_max_time = num_seconds
-        self.time_to_load_vehicles = time_to_load_vehicles  # number of simulation seconds ran in reset() before learning starts
+        # number of simulation seconds ran in reset() before learning starts
+        self.time_to_load_vehicles = time_to_load_vehicles
         self.delta_time = delta_time  # seconds on sumo at each step
         self.max_depart_delay = max_depart_delay  # Max wait time to insert a vehicle
         self.time_to_teleport = time_to_teleport
@@ -80,7 +79,6 @@ class SumoGridEnvironment(Env):
             else:
                 if not Path(out_csv_name).parent.exists():
                     os.makedirs(str(Path(out_csv_name).parent))
-
 
     @property
     def sim_step(self):
@@ -98,13 +96,15 @@ class SumoGridEnvironment(Env):
         # Initialize SUMO environments for agents
         sumo_cmd = [
             self._sumo_binary,
-            '-n', self._net,
-            '-r', self.curr_route_file,
+            '-n', str(self._net),
+            '-r', str(self.curr_route_file),
             '--max-depart-delay', str(self.max_depart_delay),
             '--waiting-time-memory', '10000',
             '--time-to-teleport', str(self.time_to_teleport),
             '--random'
         ]
+        if self._additionals_file is not None:
+            sumo_cmd.extend(['-a', str(self._additionals_file)])
         if self.use_gui:
             sumo_cmd.append('--start')
 

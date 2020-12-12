@@ -82,7 +82,7 @@ class SumoGridNetwork:
         pass
 
     def avg_stopped(self) -> float:
-        num_stopped = 1.0 * sum([ts.get_total_queued() for ts in self.traffic_signals.values()])
+        num_stopped = 1.0 * sum([sum(ts.get_queues()) for ts in self.traffic_signals.values()])
         return num_stopped / len(self.ts_ids)
 
     def avg_waiting_time(self) -> float:
