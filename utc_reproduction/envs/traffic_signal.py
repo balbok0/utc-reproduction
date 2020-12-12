@@ -1,9 +1,8 @@
 # Adapted from: https://github.com/LucasAlegre/sumo-rl
 
-import os
-import sys
 import traci
 import numpy as np
+
 
 class TrafficSignal:
     """
@@ -38,6 +37,10 @@ class TrafficSignal:
         logic = [logic for logic in logics if logic.programID == program_id][0]
         self.phases = logic.getPhases()
 
+        self._lane_to_e2_detector = {}
+        for e2_id in traci.lanearea.getIDList():
+            self._lane_to_e2_detector[traci.lanearea.getLaneID(e2_id)] = e2_id
+
     @property
     def phase(self):
         return traci.trafficlight.getPhase(self.id)
@@ -50,7 +53,10 @@ class TrafficSignal:
     def vehicles_in(self):
         result = []
         for lane in self.in_lanes:
-            result.extend(traci.lane.getLastStepVehicleIDs(lane))
+            if lane in self._lane_to_e2_detector:
+                result.extend(traci.lanearea.getLastStepVehicleIDs(self._lane_to_e2_detector[lane]))
+            else:
+                result.extend(traci.lane.getLastStepVehicleIDs(lane))
         return result
 
     def iter_phase(self):
@@ -61,29 +67,48 @@ class TrafficSignal:
         new_phase = (self.phase + 1) % len(self.phases)
         traci.trafficlight.setPhase(self.id, new_phase)
 
-    def get_mean_speed(self):
-        return sum([traci.lane.getLastStepMeanSpeed(lane) for lane in self.lanes])
+    def get_mean_speeds(self):
+        result = np.zeros(len(self.in_lanes))
+        for lane_idx, lane in enumerate(self.in_lanes):
+            if lane in self._lane_to_e2_detector:
+                result[lane_idx] = traci.lanearea.getLastStepMeanSpeed(self._lane_to_e2_detector[lane])
+            else:
+                result[lane_idx] = traci.lane.getLastStepMeanSpeed(lane)
 
-    def get_pressure(self):
-        return abs(
-            sum(traci.lane.getLastStepVehicleNumber(lane) for lane in self.lanes)
-            - sum(traci.lane.getLastStepVehicleNumber(lane) for lane in self.out_lanes)
-        )
+        # Traci likes -1
+        result[result == -1] = 0
 
-    def get_out_lanes_density(self):
-        vehicle_size_min_gap = 7.5  # 5(vehSize) + 2.5(minGap)
-        return [min(1, traci.lane.getLastStepVehicleNumber(lane) / (traci.lane.getLength(lane) / vehicle_size_min_gap)) for lane in self.out_lanes]
+        return result
 
-    def get_lanes_density(self):
-        vehicle_size_min_gap = 7.5  # 5(vehSize) + 2.5(minGap)
-        return [min(1, traci.lane.getLastStepVehicleNumber(lane) / (traci.lane.getLength(lane) / vehicle_size_min_gap)) for lane in self.lanes]
+    def get_total_mean_speed(self):
+        result = 0.0
+        count = 0
+        for lane in self.in_lanes:
+            if lane in self._lane_to_e2_detector:
+                lane_mean = traci.lanearea.getLastStepMeanSpeed(self._lane_to_e2_detector[lane])
+                lane_count = traci.lanearea.getLastStepVehicleNumber(self._lane_to_e2_detector[lane])
+            else:
+                lane_mean = traci.lane.getLastStepMeanSpeed(lane)
+                lane_count = traci.lane.getLastStepVehicleNumber(lane)
+            if result != -1:
+                result += lane_count * lane_mean
+                count += lane_count
+        if count == 0:
+            return 0.0
+        else:
+            return result / count
 
-    def get_lanes_queue(self):
-        vehicle_size_min_gap = 7.5  # 5(vehSize) + 2.5(minGap)
-        return [min(1, traci.lane.getLastStepHaltingNumber(lane) / (traci.lane.getLength(lane) / vehicle_size_min_gap)) for lane in self.lanes]
+    def get_queues(self):
+        result = np.zeros(len(self.in_lanes))
+        for lane_idx, lane in enumerate(self.in_lanes):
+            if lane in self._lane_to_e2_detector:
+                result[lane_idx] = traci.lanearea.getLastStepHaltingNumber(self._lane_to_e2_detector[lane])
+            else:
+                result[lane_idx] = traci.lane.getLastStepHaltingNumber(lane)
 
-    def get_total_queued(self):
-        return sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.in_lanes])
+        # Traci likes -1
+        result[result == -1] = 0
+        return result
 
     def get_total_waiting_time(self):
         result = 0.0
@@ -95,17 +120,19 @@ class TrafficSignal:
         # Lanes seem to always be top, right, bottom, left
         idx_to_loc = [(0, 1), (0, 2), (1, 3), (2, 3), (3, 2), (3, 1), (2, 0), (1, 0)]
         grid = np.zeros((2, 4, 4))
-        for (x, y), lane in zip(idx_to_loc, self.lanes):
-            grid[0, x, y] = traci.lane.getLastStepHaltingNumber(lane)
-            grid[1, x, y] = traci.lane.getLastStepMeanSpeed(lane)
-
+        queues = self.get_queues()
+        mean_speeds = self.get_mean_speeds()
+        for (x, y), lane_queue, lane_mean_speed in zip(idx_to_loc, queues, mean_speeds):
+            grid[0, x, y] = lane_queue
+            grid[1, x, y] = lane_mean_speed
+        print(grid)
         return grid
 
     def reward(self):
-        num_halted_southbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.lanes[:2]])
-        num_halted_westbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.lanes[2:4]])
-        num_halted_northbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.lanes[4:6]])
-        num_halted_eastbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.lanes[-2:]])
+        num_halted_southbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.in_lanes[:2]])
+        num_halted_westbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.in_lanes[2:4]])
+        num_halted_northbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.in_lanes[4:6]])
+        num_halted_eastbound = sum([traci.lane.getLastStepHaltingNumber(lane) for lane in self.in_lanes[-2:]])
         return -abs(
             max(num_halted_northbound, num_halted_southbound) - max(num_halted_eastbound, num_halted_westbound)
         )

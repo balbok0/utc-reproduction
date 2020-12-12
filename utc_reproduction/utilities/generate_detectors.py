@@ -19,9 +19,8 @@ def generate_e2_detectors(network_file: str, length: int, out_file: str):
         for l_id in incoming_lanes:
             l_len = traci.lane.getLength(l_id)
             used_len = min(l_len, length)
-            start_pos = l_len - used_len
             xml_lines.append(
-                f"\t<laneAreaDetector id=\"e2_{l_id}\" lane=\"{l_id}\" length=\"{used_len:.2f}\" endPos=\"{l_len:.2f}\" tl=\"{ts_id}\" file=\"e2_{l_id}.log\"/>\n"
+                f"\t<laneAreaDetector id=\"e2_{l_id}\" lane=\"{l_id}\" length=\"{used_len:.2f}\" endPos=\"{l_len:.2f}\" tl=\"{ts_id}\" file=\"additionals/e2_{l_id}.log\"/>\n"
             )
     xml_lines.append("</additional>\n")
     traci.close()
