@@ -31,7 +31,8 @@ register_env(
         delta_time=1,
         time_to_load_vehicles=2,
         max_depart_delay=0,
-        out_csv_name=f"outputs/reproduce/3x3grid/reproduce_timestamp_{timestamp}_train_",
+        out_csv_name=f"outputs/reproduce/3x3grid/global_only/reproduce_timestamp_{timestamp}_train_",
+        global_only=True,
     ),
 )
 

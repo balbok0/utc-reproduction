@@ -31,6 +31,7 @@ class SumoGridEnvironment(Env):
         time_to_load_vehicles: int = 2,
         delta_time: int = 5,
         out_csv_name: str = None,
+        global_only: bool = False,
     ):
         self._net = net_file
         self._additionals_file = additionals_file
@@ -46,6 +47,7 @@ class SumoGridEnvironment(Env):
 
         self.num_cols = num_cols
         self.num_rows = num_rows
+        self._global_only = global_only
 
         self.run = 0
         self.step_num = 0
@@ -127,16 +129,20 @@ class SumoGridEnvironment(Env):
         beta = min(1.0, max(self.step_num * 1. / self.num_train_steps, 0.0))
         global_reward = self.sumo_net.global_reward()
         local_reward = self.sumo_net.local_reward()
-        reward = beta * global_reward + (1 - beta) * local_reward
+        hybrid_reward = beta * global_reward + (1 - beta) * local_reward
 
         info = self.sumo_net.info()
         info["global_reward"] = global_reward
-        info["hybrid_reward"] = reward
+        info["hybrid_reward"] = hybrid_reward
         info["step_time"] = self.sim_step
         info["current_route_file"] = self.curr_route_file
         self.metrics.append(info)
 
         dones = self.sim_step > self.sim_max_time
+        if self._global_only:
+            reward = global_reward
+        else:
+            reward = hybrid_reward
 
         return observations, reward, dones, info
 

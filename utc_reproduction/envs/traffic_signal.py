@@ -125,7 +125,6 @@ class TrafficSignal:
         for (x, y), lane_queue, lane_mean_speed in zip(idx_to_loc, queues, mean_speeds):
             grid[0, x, y] = lane_queue
             grid[1, x, y] = lane_mean_speed
-        print(grid)
         return grid
 
     def reward(self):
