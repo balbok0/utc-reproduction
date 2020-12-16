@@ -15,13 +15,12 @@ from .traffic_signal import TrafficSignal
 from .network import SumoGridNetwork
 
 
-class SumoGridEnvironment(Env):
+class SumoTensorEnvironment(Env):
     def __init__(
         self,
         net_file: str,
         route_folder: str,
-        num_cols: int,
-        num_rows: int,
+        num_tls: int,
         num_train_steps: int,
         additionals_file: str = None,
         use_gui: bool = False,
@@ -32,16 +31,11 @@ class SumoGridEnvironment(Env):
         delta_time: int = 5,
         out_csv_name: str = None,
         global_only: bool = False,
-        features: List[str] = None,
     ):
         self._net = net_file
         self._additionals_file = additionals_file
         self._route_dir = route_folder
         self._route_files = list(Path(self._route_dir).rglob("*.rou.xml"))
-        if features is None:
-            self._features = ["queues", "mean_speeds"]
-        else:
-            self._features = features.copy()
         self.agent_id = f"agent_{np.random.randint(0, 999999999)}"
 
         self.use_gui = use_gui
@@ -50,8 +44,7 @@ class SumoGridEnvironment(Env):
         else:
             self._sumo_binary = sumolib.checkBinary('sumo')
 
-        self.num_cols = num_cols
-        self.num_rows = num_rows
+        self._num_tls = num_tls
         self._global_only = global_only
 
         self.run = 0
@@ -60,8 +53,8 @@ class SumoGridEnvironment(Env):
 
         # (num observables, 4 * rows, 4 * cols). Assumes at most 4 directions, 2 incoming lanes each
         self.observation_space = spaces.Box(
-            low=-np.inf * np.ones((len(self._features), 4 * self.num_rows, 4 * self.num_cols)),
-            high=np.inf * np.ones((len(self._features), 4 * self.num_rows, 4 * self.num_cols)),
+            low=-np.inf * np.ones((2, 4 * self.num_rows, 4 * self.num_cols)),
+            high=np.inf * np.ones((2, 4 * self.num_rows, 4 * self.num_cols)),
         )
         # (rows, )
         self.action_space = spaces.MultiDiscrete([2] * 9)
@@ -118,7 +111,7 @@ class SumoGridEnvironment(Env):
         traci.start(sumo_cmd, label=self.agent_id)
 
         # Build networks for each environment
-        self.sumo_net = SumoGridNetwork(self.agent_id, self.num_rows, self.num_cols, self._features)
+        self.sumo_net = SumoGridNetwork(self.agent_id, self.num_rows, self.num_cols)
         self.sumo_net.reset()
 
         return self._compute_observations()

@@ -4,20 +4,16 @@ import numpy as np
 from typing import List, Dict, Any
 
 
-class SumoGridNetwork:
-    def __init__(self, label: int, num_rows: int, num_cols: int, features: List[str] = None):
+class SumoTensorNetwork:
+    def __init__(self, label: int, num_rows: int, num_cols: int):
         self.label = label
         self.num_rows = num_rows
         self.num_cols = num_cols
-        if features is None:
-            self._features = ["queues", "mean_speeds"]
-        else:
-            self._features = features.copy()
 
         traci.switch(self.label)
         self.ts_ids = traci.trafficlight.getIDList()
         self.traffic_signals = {
-            ts_id: TrafficSignal(ts_id, features=self._features)
+            ts_id: TrafficSignal(ts_id)
             for ts_id in self.ts_ids
         }
 
@@ -44,7 +40,7 @@ class SumoGridNetwork:
 
     def as_feature_grid(self):
         traci.switch(self.label)
-        observations = np.zeros((len(self._features), 4 * self.num_rows, 4 * self.num_cols))
+        observations = np.zeros((2, 4 * self.num_rows, 4 * self.num_cols))
         for ts_idx, ts in enumerate(self.ts_ids):
             r_i = ts_idx // self.num_cols
             c_i = ts_idx % self.num_cols
