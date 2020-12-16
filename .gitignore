@@ -134,3 +134,13 @@ tmp.*
 tmp/
 outputs/
 nets/**/routes/
+
+# Tex
+*.aux
+*.tex~
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.out
